@@ -1,5 +1,5 @@
 'use strict';
-var _ = require('lodash'),
+var assign = require('object-assign'),
     Suite = require('./beans/suite'),
     Test = require('./beans/test'),
     Step = require('./beans/step'),
@@ -14,7 +14,7 @@ function Allure() {
     };
 }
 Allure.prototype.setOptions = function(options) {
-    _.assign(this.options, options);
+    assign(this.options, options);
 };
 
 Allure.prototype.getCurrentSuite = function() {
@@ -53,15 +53,19 @@ Allure.prototype.endCase = function(status, err, timestamp) {
 Allure.prototype.startStep = function(stepName, timestamp) {
     var step = new Step(stepName, timestamp),
         suite = this.getCurrentSuite();
-    step.parent = suite.currentStep;
-    step.parent.addStep(step);
-    suite.currentStep = step;
+    if (suite.currentStep) {
+        step.parent = suite.currentStep;
+        step.parent.addStep(step);
+        suite.currentStep = step;
+    }
 };
 
 Allure.prototype.endStep = function(status, timestamp) {
     var suite = this.getCurrentSuite();
-    suite.currentStep.end(status, timestamp);
-    suite.currentStep = suite.currentStep.parent;
+    if (suite.currentStep) {
+        suite.currentStep.end(status, timestamp);
+        suite.currentStep = suite.currentStep.parent;
+    }
 };
 
 Allure.prototype.setDescription = function(description) {
@@ -71,8 +75,12 @@ Allure.prototype.setDescription = function(description) {
 Allure.prototype.addAttachment = function(attachmentName, buffer, type) {
     var info = util.getBufferInfo(buffer, type),
         name = writer.writeBuffer(this.options.targetDir, buffer, info.ext),
-        attachment = new Attachment(attachmentName, name, buffer.length, info.mime);
-    this.getCurrentSuite().currentStep.addAttachment(attachment);
+        attachment = new Attachment(attachmentName, name, buffer.length, info.mime),
+        currentStep = this.getCurrentSuite().currentStep;
+
+    if (currentStep) {
+        this.getCurrentSuite().currentStep.addAttachment(attachment);
+    }
 };
 
 Allure.prototype.pendingCase = function(testName, timestamp) {
